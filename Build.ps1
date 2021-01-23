@@ -41,7 +41,10 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$SitecoreRegistry = "scr.sitecore.com",
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeShortTags
+    [switch]$IncludeShortTags,
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("WhenChanged", "Always", "Never")]
+    [string]$PushMode = "WhenChanged"
 )
 
 Push-Location build
@@ -362,5 +365,6 @@ SitecoreImageBuilder\Invoke-Build `
     -IncludeShortTags:$IncludeShortTags `
     -WhatIf:$WhatIfPreference `
     -Verbose:$VerbosePreference
+    -PushMode $PushMode `
 
 Pop-Location
