@@ -2,16 +2,38 @@ function Get-TopologicalSort
 {
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable] $InputObject
+        [psobject] $InputObject
     )
+
+    # Convert PSCustomObject to hashtable
+    if ($InputObject -isnot [hashtable]) {
+        $ht = @{}
+        $InputObject.PSObject.Properties | ForEach-Object {
+            if ($_.Value -is [array]) {
+                $ht[$_.Name] = $_.Value.Clone()
+            }
+            else {
+                $ht[$_.Name] = $_.Value
+            }
+        }
+        $InputObject = $ht
+    }
+
+    # Clone hashtable
+    $currentEdgeList = @{}
+    foreach ($key in $InputObject.Keys) {
+        if ($InputObject[$key] -is [array]) {
+            $currentEdgeList[$key] = $InputObject[$key].Clone()
+        }
+        else {
+            $currentEdgeList[$key] = $InputObject[$key]
+        }
+    }
 
     # Thanks to Jeff Moser's answer on SO: https://stackoverflow.com/a/13350764
 
     # Make sure we can use HashSet
     Add-Type -AssemblyName System.Core
-
-    # Clone it so as to not alter original
-    $currentEdgeList = [hashtable] (Copy-Object $InputObject)
 
     $topologicallySortedElements = New-Object System.Collections.ArrayList
     $setOfAllNodesWithNoIncomingEdges = New-Object System.Collections.Queue
@@ -85,34 +107,4 @@ function Get-TopologicalSort
     }
 
     return $topologicallySortedElements
-}
-
-function Copy-Object
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [object]$InputObject
-    )
-
-    $memoryStream = $null
-
-    try
-    {
-        $memoryStream = New-Object IO.MemoryStream
-
-        $formatter = New-Object Runtime.Serialization.Formatters.Binary.BinaryFormatter
-        $formatter.Serialize($memoryStream, $InputObject)
-
-        $memoryStream.Position = 0
-
-        return $formatter.Deserialize($memoryStream)
-    }
-    finally
-    {
-        if ($null -ne $memoryStream)
-        {
-            $memoryStream.Dispose()
-            $memoryStream = $null
-        }
-    }
 }

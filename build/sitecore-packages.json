@@ -360,8 +360,8 @@
         "hash": ""
     },
     "Sitecore Publishing Module 9.3.0.0 rev. r00546.2197.scwdp.zip": {
-        "url": "",
-        "hash": ""
+        "url": "https://scdp.blob.core.windows.net/downloads/Sitecore%20Publishing%20Service%20Module/9x/Sitecore%20Publishing%20Service%20Module%20930/Secure/Sitecore%20Publishing%20Module%209.3.0.0%20rev.%20r00546.2197.zip",
+        "hash": "7E941B643D8B968130AA64F1A8AAE80899F04AEE3BF4504634CE54343866685F"
     },
     "Sitecore Publishing Service 4.2.0-win-x64.zip": {
         "url": "https://sitecoredev.azureedge.net/~/media/1AD1BA4204634EB5B4B18179E23FA285.ashx",

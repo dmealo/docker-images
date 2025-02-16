@@ -234,66 +234,62 @@ function Out-TruncatedString
     Write-Output $outString
 }
 
-function Invoke-FileDownload
-{
-    [CmdletBinding()]
+function Invoke-FileDownload {
     param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$Url,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$Path,
-        [System.Net.CookieContainer]$Cookies,
-        [int]$Timeout = 15000
+
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 5
     )
 
-    $uri = [uri]::new($url)
-    $request = [System.Net.HttpWebRequest]::Create($uri)
-    $request.Timeout = $Timeout
-
-    if ($cookies)
-    {
-        $request.CookieContainer = $cookies
+    # Create directory if it doesn't exist
+    $dir = Split-Path -Path $Path -Parent
+    if (!(Test-Path $dir)) {
+        New-Item $dir -ItemType Directory -Force | Out-Null
     }
 
-    $downloadPath = $Path
-    $hasMoreToRead = $true
-    $buffer = New-Object byte[] 10KB
-    [long]$totalBytesRead = 0
-    [long]$readCount = 0
+    $attempt = 0
+    $success = $false
 
-    try
-    {
-        $response = $request.GetResponse()
-        $totalBytes = [System.Math]::Floor($response.ContentLength)
-        $responseStream = $response.GetResponseStream()
-        $fileStream = [System.IO.FileStream]::new($downloadPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite, 10KB, $true)
+    do {
+        $attempt++
+        try {
+            $webClient = New-Object System.Net.WebClient
 
-        do
-        {
-            $bytesRead = $responseStream.Read($buffer, 0, $buffer.length)
-            if ($bytesRead -eq 0)
-            {
-                $hasMoreToRead = $false
-                continue
+            # Configure TLS 1.2
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+            # Add common browser headers
+            $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            $webClient.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+            $webClient.Headers.Add("Accept-Language", "en-US,en;q=0.9")
+            $webClient.Headers.Add("Referer", $Url)
+
+            Write-Information "Downloading (Attempt $attempt of $MaxRetries): $Url..." -InformationAction Continue
+            $webClient.DownloadFile($Url, $Path)
+            $success = $true
+            break
+        }
+        catch {
+            $message = $_.Exception.Message
+            if ($attempt -lt $MaxRetries) {
+                Write-Warning "Attempt $attempt failed: $message. Retrying in $RetryDelaySeconds seconds..."
+                Start-Sleep -Seconds $RetryDelaySeconds
             }
-
-            $fileStream.Write($buffer, 0, $bytesRead)
-            $totalBytesRead += $bytesRead
-            $readCount += 1
-
-            if ($readCount % 100 -eq 0)
-            {
-                $percentComplete = ($totalBytesRead / $totalBytes * 100)
-                Write-InlineProgress -Activity "Downloading" -PercentComplete $percentComplete -StatusMessage "$([math]::round($totalBytesRead /1MB, 2))MB / $([math]::round($totalBytes /1MB, 2))MB"
+            else {
+                throw "Failed to download '$Url' after $MaxRetries attempts: $message. Please verify you can access this URL in a browser and the file exists."
             }
         }
-        while ($hasMoreToRead)
-
-        Write-InlineProgress -Activity "Download complete" -Completed
-    }
-    finally
-    {
-        $fileStream.Flush()
-        $fileStream.Close()
-        $fileStream.Dispose()
-        $responseStream.Dispose()
-    }
+        finally {
+            if ($null -ne $webClient) {
+                $webClient.Dispose()
+            }
+        }
+    } while ($attempt -lt $MaxRetries -and !$success)
 }
